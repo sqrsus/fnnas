@@ -1,0 +1,9 @@
+!.gitignore
+/make-fnnas/kernel
+/make-fnnas/u-boot
+/fnnas
+/fnnas-arm64
+/out
+/tmp
+.DS_Store
+npm-debug.log*
