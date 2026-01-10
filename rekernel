@@ -152,6 +152,14 @@ init_var() {
             ;;
         esac
     done
+
+    # Adjust the custom kernel repository url format
+    [[ -z "${debs_repo}" ]] && debs_repo="ophub/fnnas"
+    [[ "${debs_repo}" =~ ^https: ]] && debs_repo="$(echo ${debs_repo} | awk -F'/' '{print $4"/"$5}')"
+    kernel_api="https://github.com/${debs_repo}"
+
+    # Identify the kernel <VERSION> and <PATCHLEVEL>, such as [ 6.12 ]
+    kernel_verpatch="$(echo ${debs_version} | awk -F '.' '{print $1"."$2}')"
 }
 
 download_debs() {
@@ -164,14 +172,6 @@ download_debs() {
     fi
 
     cd "${current_path}"
-
-    # Adjust the custom kernel repository url format
-    [[ -z "${debs_repo}" ]] && debs_repo="ophub/fnnas"
-    [[ "${debs_repo}" =~ ^https: ]] && debs_repo="$(echo ${debs_repo} | awk -F'/' '{print $4"/"$5}')"
-    kernel_api="https://github.com/${debs_repo}"
-
-    # Identify the kernel <VERSION> and <PATCHLEVEL>, such as [ 6.1 ]
-    kernel_verpatch="$(echo ${debs_version} | awk -F '.' '{print $1"."$2}')"
 
     # Get the latest version from github releases(e.g: 6.12.41)
     latest_version="$(
@@ -194,7 +194,7 @@ download_debs() {
         curl -fsSL "${debs_down_from}" -o "${tmp_debs_path}/${latest_version}.tar.gz"
         [[ "${?}" -eq 0 ]] && break || sleep 60
     done
-    [[ "${?}" -eq 0 ]] || error_msg "Failed to download the kernel debs files from the server."
+    [[ "${?}" -eq 0 ]] || error_msg "Failed to download the kernel debs files from the github.com server."
 
     # Extract the downloaded debs files
     echo -e "${INFO} Extracting kernel debs files..."
@@ -217,6 +217,17 @@ download_dtbs() {
 
     cd "${current_path}"
 
+    # Get the latest version from github releases(e.g: 6.12.41)
+    latest_version="$(
+        curl -fsSL \
+            https://github.com/ophub/kernel/releases/expanded_assets/kernel_stable |
+            grep -oE "${kernel_verpatch}\.[0-9]+\.tar\.gz" |
+            sed "s/\.tar\.gz//" |
+            sort -urV | head -n 1
+    )"
+    [[ -n "${latest_version}" ]] || error_msg "Failed to query kernel dtbs version from [ https://github.com/ophub/kernel ]."
+    echo -e "${INFO} Latest kernel dtbs version found: [ ${latest_version} ]"
+
     # Set the dtbs download path
     tmp_dtbs_path="$(mktemp -d)"
     mkdir -p "${tmp_dtbs_path}"/{allwinner,amlogic,rockchip}
@@ -228,7 +239,7 @@ download_dtbs() {
         curl -fsSL "${dtbs_down_from}" -o "${tmp_dtbs_path}/${latest_version}.tar.gz"
         [[ "${?}" -eq 0 ]] && break || sleep 60
     done
-    [[ "${?}" -eq 0 ]] || error_msg "Failed to download the kernel dtbs files from the server."
+    [[ "${?}" -eq 0 ]] || error_msg "Failed to download the kernel dtbs files from the github.com server."
 
     # Extract the downloaded dtbs files
     echo -e "${INFO} Extracting kernel dtbs files..."
